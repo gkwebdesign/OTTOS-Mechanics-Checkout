@@ -59,6 +59,9 @@
       </div>
       <ul id="checkoutList" class="space-y-2 max-h-60 overflow-y-auto md:max-h-none md:overflow-y-visible"></ul>
       <div class="mt-4 border-t border-gray-700 pt-4 space-y-2">
+        <label for="alreadyPaid" class="block text-sm">Already Paid</label>
+        <input id="alreadyPaid" type="number" min="0" value="0" class="w-full text-black px-2 py-1 rounded" oninput="renderCart()">
+
         <label for="discount" class="block text-sm">Discount %</label>
         <input id="discount" type="number" min="0" max="100" value="0" class="w-full text-black px-2 py-1 rounded" oninput="renderCart()">
         <p>Invoices: <span id="totalPrice">$0</span></p>
@@ -189,8 +192,10 @@
         checkoutList.appendChild(li);
       });
 
+      const alreadyPaid = parseFloat(document.getElementById('alreadyPaid').value) || 0;
       const discounted = total * (1 - discountPercent / 100);
-      totalPriceEl.textContent = formatPrice(discounted);
+      const finalTotal = Math.max(discounted - alreadyPaid, 0);
+      totalPriceEl.textContent = formatPrice(finalTotal);
     }
 
     function updateQty(index, newQty) {
@@ -228,10 +233,13 @@
         total += line;
         receipt += `${item} - ${formatPrice(price)} x ${qty} = ${formatPrice(line)}\n`;
       });
+      const alreadyPaid = parseFloat(document.getElementById('alreadyPaid').value) || 0;
       const discounted = total * (1 - discountPercent / 100);
+      const finalTotal = Math.max(discounted - alreadyPaid, 0);
       receipt += `
 Discount: ${discountPercent}%
-Invoices: ${formatPrice(discounted)}`;
+Already Paid: ${formatPrice(alreadyPaid)}
+Invoices: ${formatPrice(finalTotal)}`;
       receiptText.textContent = receipt;
       receiptModal.classList.remove("hidden");
     }
