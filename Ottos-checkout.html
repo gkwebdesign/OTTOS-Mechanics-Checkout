@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mechanic Shop Checkout</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    #sidebar.hidden { display: none; }
+    #sidebarToggleReopen {
+      position: fixed;
+      top: auto; bottom: 1rem;
+      left: 50%; transform: translateX(-50%);
+      z-index: 50;
+    }
+    @media (min-width: 769px) {
+    #sidebarToggleReopen {
+      top: 1rem;
+      bottom: auto;
+      left: auto;
+      right: 1rem;
+      transform: none;
+    }
+  }
+
+  @media (max-width: 768px) {
+  #sidebarToggleReopen {
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+  }
+}
+}
+        font-size: 1.25rem;
+        padding: 0.75rem 1rem;
+        background-color: #1e293b;
+        border: 2px solid white;
+      }
+    }
+    #sidebarToggleReopen:hover {
+      background-color: #334155;
+      transform: scale(1.05);
+      transition: all 0.2s;
+    }
+  </style>
+</head>
+<body class="bg-gray-900 text-white">
+  <div class="flex flex-col items-start px-6 py-4">
+    <img src="https://i.ibb.co/tDWr57m/Otto-27s-Auto-Parts-GTAV-Logo-Texture.png" alt="Otto's Logo" class="max-w-[150px] mb-2">
+    <header class="text-3xl font-bold">Ottos Mechanics</header>
+  </div>
+  <button onclick="toggleSidebar(true)" id="sidebarToggleReopen" class="bg-gray-600 text-white px-4 py-2 text-lg rounded hidden block">←</button>
+  <button onclick="toggleSidebar(true)" id="sidebarToggleReopenMobile" class="bg-gray-600 text-white px-4 py-2 text-lg rounded fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 md:hidden hidden">▲</button>
+  <div class="flex flex-col-reverse md:flex-row min-h-screen">
+    <!-- Sidebar -->
+    <aside id="sidebar" class="bg-gray-800 w-full md:w-72 p-4 transition-all duration-300 fixed bottom-0 left-0 z-40 md:static md:order-2 max-h-1/2 overflow-y-auto">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-bold">Checkout List</h2>
+        <button onclick="toggleSidebar(false)" id="sidebarToggle" class="bg-gray-600 text-white px-2 py-1 rounded z-20">⇄</button>
+      </div>
+      <ul id="checkoutList" class="space-y-2 max-h-60 overflow-y-auto md:max-h-none md:overflow-y-visible"></ul>
+      <div class="mt-4 border-t border-gray-700 pt-4 space-y-2">
+        <label for="discount" class="block text-sm">Discount %</label>
+        <input id="discount" type="number" min="0" max="100" value="0" class="w-full text-black px-2 py-1 rounded" oninput="renderCart()">
+        <p>Invoices: <span id="totalPrice">$0</span></p>
+        <button onclick="resetCart()" class="bg-red-500 px-3 py-1 rounded w-full">Reset</button>
+        <button onclick="exportReceipt()" class="bg-blue-500 px-3 py-1 rounded w-full">Export Receipt</button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 p-6">
+      <div id="itemsGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+    </main>
+  </div>
+
+  <!-- Receipt Modal -->
+  <div id="receiptModal" class="fixed inset-0 bg-black bg-opacity-70 hidden items-center justify-center z-50">
+    <div class="bg-white text-black rounded-lg shadow-lg p-6 w-full max-w-xl">
+      <h2 class="text-xl font-bold mb-4">Receipt</h2>
+      <pre id="receiptText" class="bg-gray-100 p-4 rounded overflow-auto text-sm h-64 whitespace-pre-wrap"></pre>
+      <div class="mt-4 flex justify-between">
+        <button onclick="copyReceipt()" class="bg-green-600 text-white px-4 py-2 rounded">Copy Receipt</button>
+        <button onclick="closeReceipt()" class="bg-black text-white px-4 py-2 rounded">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const sheetId = '1k_zcvSxiceGDXJHqDxxmCE2pWDIq2D1hvZiA36KD_t0';
+    const apiKey = 'AIzaSyCfbJXEv1u8HInFKWOZI6TZekixl8IZGv0';
+    const range = 'Sheet1!A2:B';
+
+    const checkoutList = document.getElementById("checkoutList");
+    const itemsGrid = document.getElementById("itemsGrid");
+    const totalPriceEl = document.getElementById("totalPrice");
+    const receiptModal = document.getElementById("receiptModal");
+    const receiptText = document.getElementById("receiptText");
+    const sidebar = document.getElementById("sidebar");
+    const sidebarToggleReopen = document.getElementById("sidebarToggleReopen");
+
+    let cart = JSON.parse(localStorage.getItem("cart")) || [],
+        categories = {},
+        sidebarVisible = true;
+
+    async function fetchSheetData() {
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?key=${apiKey}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      const rows = data.values || [];
+
+      let currentCategory = null;
+      rows.forEach(([item, price]) => {
+        if (!item || item.trim() === '') return;
+        if (!price || price.trim() === '') {
+          currentCategory = item.trim();
+          if (!categories[currentCategory]) categories[currentCategory] = [];
+        } else if (currentCategory) {
+          const cleanedPrice = parseFloat(price.replace(/[^0-9.]/g, ''));
+          if (!isNaN(cleanedPrice)) {
+            categories[currentCategory].push({ item: item.trim(), price: cleanedPrice });
+          }
+        }
+      });
+
+      renderCategories();
+      renderCart();
+    }
+
+    function formatPrice(value) {
+      return "$" + value.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    }
+
+    function renderCategories() {
+      itemsGrid.innerHTML = '';
+      for (let cat in categories) {
+        const section = document.createElement('div');
+        section.className = 'bg-gray-800 rounded';
+
+        const header = document.createElement('div');
+        header.className = 'font-bold text-lg cursor-pointer px-4 py-2 bg-gray-700 rounded-t';
+        header.innerHTML = `${cat}`;
+
+        const itemWrapper = document.createElement('div');
+        itemWrapper.className = 'p-4 space-y-2';
+
+        categories[cat].forEach(({ item, price }) => {
+          const div = document.createElement('div');
+          div.className = 'bg-gray-700 p-3 rounded shadow cursor-pointer hover:bg-gray-600';
+          div.innerHTML = `<div class='font-semibold mb-1'>${item}</div><p class='mb-1'>${formatPrice(price)}</p>`;
+          div.onclick = () => addToCart(item, price, 1);
+          itemWrapper.appendChild(div);
+        });
+
+        
+        section.appendChild(header);
+        section.appendChild(itemWrapper);
+        itemsGrid.appendChild(section);
+      }
+    }
+
+    function addToCart(item, price, qty = 1) {
+      const existing = cart.find(entry => entry.item === item);
+      if (existing) {
+        existing.qty += qty;
+      } else {
+        cart.push({ item, price, qty });
+      }
+      saveCart();
+      renderCart();
+    }
+
+    function renderCart() {
+      const discountPercent = parseFloat(document.getElementById('discount').value) || 0;
+      checkoutList.innerHTML = '';
+      let total = 0;
+
+      cart.forEach(({ item, price, qty }, index) => {
+        const lineTotal = price * qty;
+        total += lineTotal;
+        const li = document.createElement('li');
+        li.className = 'flex justify-between items-center bg-gray-700 p-2 rounded';
+        li.innerHTML = `
+          <div>
+            ${item} - ${formatPrice(price)}<br>
+            <input type="number" min="1" value="${qty}" onchange="updateQty(${index}, this.value)" class="w-16 text-black px-1 rounded mt-1" />
+          </div>
+          <button onclick="removeItem(${index})" class="text-red-400">✕</button>
+        `;
+        checkoutList.appendChild(li);
+      });
+
+      const discounted = total * (1 - discountPercent / 100);
+      totalPriceEl.textContent = formatPrice(discounted);
+    }
+
+    function updateQty(index, newQty) {
+      const qty = parseInt(newQty);
+      if (!isNaN(qty) && qty > 0) {
+        cart[index].qty = qty;
+        saveCart();
+        renderCart();
+      }
+    }
+
+    function removeItem(index) {
+      cart.splice(index, 1);
+      saveCart();
+      renderCart();
+    }
+
+    function resetCart() {
+      cart = [];
+      saveCart();
+      renderCart();
+    }
+
+    function saveCart() {
+      localStorage.setItem("cart", JSON.stringify(cart));
+    }
+
+    function exportReceipt() {
+      if (cart.length === 0) return alert("Cart is empty.");
+      const discountPercent = parseFloat(document.getElementById('discount').value) || 0;
+      let total = 0;
+      let receipt = "🔧 Mechanic Shop Receipt\n\n";
+      cart.forEach(({ item, price, qty }) => {
+        const line = price * qty;
+        total += line;
+        receipt += `${item} - ${formatPrice(price)} x ${qty} = ${formatPrice(line)}\n`;
+      });
+      const discounted = total * (1 - discountPercent / 100);
+      receipt += `
+Discount: ${discountPercent}%
+Invoices: ${formatPrice(discounted)}`;
+      receiptText.textContent = receipt;
+      receiptModal.classList.remove("hidden");
+    }
+
+    function copyReceipt() {
+      navigator.clipboard.writeText(receiptText.textContent).then(() => {
+        alert("Receipt copied to clipboard.");
+      });
+    }
+
+    function closeReceipt() {
+      receiptModal.classList.add("hidden");
+    }
+
+    function toggleSidebar(show) {
+  sidebarVisible = show;
+  sidebar.classList.toggle("hidden", !show);
+  sidebarToggleReopen.classList.toggle("hidden", show);
+  const mobileBtn = document.getElementById("sidebarToggleReopenMobile");
+  if (mobileBtn) mobileBtn.classList.toggle("hidden", show);
+}
+
+    fetchSheetData();
+  </script>
+</body>
+</html>
