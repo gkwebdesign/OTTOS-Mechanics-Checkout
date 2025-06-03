@@ -14,26 +14,18 @@
       z-index: 50;
     }
     @media (min-width: 769px) {
-    #sidebarToggleReopen {
-      top: 1rem;
-      bottom: auto;
-      left: auto;
-      right: 1rem;
-      transform: none;
+      #sidebarToggleReopen {
+        top: 1rem;
+        bottom: auto;
+        left: auto;
+        right: 1rem;
+        transform: none;
+      }
     }
-  }
-
-  @media (max-width: 768px) {
-  #sidebarToggleReopen {
-    left: 50% !important;
-    transform: translateX(-50%) !important;
-  }
-}
-}
-        font-size: 1.25rem;
-        padding: 0.75rem 1rem;
-        background-color: #1e293b;
-        border: 2px solid white;
+    @media (max-width: 768px) {
+      #sidebarToggleReopen {
+        left: 50% !important;
+        transform: translateX(-50%) !important;
       }
     }
     #sidebarToggleReopen:hover {
@@ -51,7 +43,6 @@
   <button onclick="toggleSidebar(true)" id="sidebarToggleReopen" class="bg-gray-600 text-white px-4 py-2 text-lg rounded hidden block">←</button>
   <button onclick="toggleSidebar(true)" id="sidebarToggleReopenMobile" class="bg-gray-600 text-white px-4 py-2 text-lg rounded fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 md:hidden hidden">▲</button>
   <div class="flex flex-col-reverse md:flex-row min-h-screen">
-    <!-- Sidebar -->
     <aside id="sidebar" class="bg-gray-800 w-full md:w-72 p-4 transition-all duration-300 fixed bottom-0 left-0 z-40 md:static md:order-2 max-h-1/2 overflow-y-auto">
       <div class="flex justify-between items-center mb-4">
         <h2 class="text-xl font-bold">Checkout List</h2>
@@ -61,7 +52,6 @@
       <div class="mt-4 border-t border-gray-700 pt-4 space-y-2">
         <label for="alreadyPaid" class="block text-sm">Already Paid</label>
         <input id="alreadyPaid" type="number" min="0" value="0" class="w-full text-black px-2 py-1 rounded" oninput="renderCart()">
-
         <label for="discount" class="block text-sm">Discount %</label>
         <input id="discount" type="number" min="0" max="100" value="0" class="w-full text-black px-2 py-1 rounded" oninput="renderCart()">
         <p>Invoices: <span id="totalPrice">$0</span></p>
@@ -70,13 +60,11 @@
       </div>
     </aside>
 
-    <!-- Main Content -->
     <main class="flex-1 p-6">
       <div id="itemsGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
     </main>
   </div>
 
-  <!-- Receipt Modal -->
   <div id="receiptModal" class="fixed inset-0 bg-black bg-opacity-70 hidden items-center justify-center z-50">
     <div class="bg-white text-black rounded-lg shadow-lg p-6 w-full max-w-xl">
       <h2 class="text-xl font-bold mb-4">Receipt</h2>
@@ -89,99 +77,87 @@
   </div>
 
   <script>
-    const sheetId = '1k_zcvSxiceGDXJHqDxxmCE2pWDIq2D1hvZiA36KD_t0';
-    const apiKey = 'AIzaSyCfbJXEv1u8HInFKWOZI6TZekixl8IZGv0';
-    const range = 'Sheet1!A2:B';
-
-    const checkoutList = document.getElementById("checkoutList");
-    const itemsGrid = document.getElementById("itemsGrid");
-    const totalPriceEl = document.getElementById("totalPrice");
-    const receiptModal = document.getElementById("receiptModal");
-    const receiptText = document.getElementById("receiptText");
-    const sidebar = document.getElementById("sidebar");
-    const sidebarToggleReopen = document.getElementById("sidebarToggleReopen");
-
-    let cart = JSON.parse(localStorage.getItem("cart")) || [],
-        categories = {},
-        sidebarVisible = true;
-
-    async function fetchSheetData() {
-      const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?key=${apiKey}`;
-      const res = await fetch(url);
-      const data = await res.json();
-      const rows = data.values || [];
-
-      let currentCategory = null;
-      rows.forEach(([item, price]) => {
-        if (!item || item.trim() === '') return;
-        if (!price || price.trim() === '') {
-          currentCategory = item.trim();
-          if (!categories[currentCategory]) categories[currentCategory] = [];
-        } else if (currentCategory) {
-          const cleanedPrice = parseFloat(price.replace(/[^0-9.]/g, ''));
-          if (!isNaN(cleanedPrice)) {
-            categories[currentCategory].push({ item: item.trim(), price: cleanedPrice });
-          }
-        }
-      });
-
-      renderCategories();
-      renderCart();
-    }
+    const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSLpMnvmutHEUPgLcegUX4GubEo-DBQlyse5CGNAr-qSypsYzIVFyZ2NHez3d3yAIhjApUbNVLjbcdR/pub?output=csv';
+    const categories = {};
+    let cart = [];
 
     function formatPrice(value) {
-      return "$" + value.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+      return "$" + value.toLocaleString("en-US", { maximumFractionDigits: 0 });
+    }
+
+    function fetchSheetData() {
+      fetch(csvUrl)
+        .then(res => res.text())
+        .then(csv => {
+          const rows = csv.trim().split('\n').map(r => r.split(',').map(cell => cell.trim()));
+          let currentCategory = null;
+          rows.forEach(([item, price]) => {
+            if (item && !price) {
+              currentCategory = item;
+              if (!categories[currentCategory]) categories[currentCategory] = [];
+            } else if (item && price && currentCategory) {
+              const numericPrice = parseInt(price.replace(/[^\d]/g, ''));
+              if (!isNaN(numericPrice)) {
+                categories[currentCategory].push({ item, price: numericPrice });
+              }
+            }
+          });
+          renderCategories();
+          renderCart();
+        })
+        .catch(err => console.error("Failed to fetch and parse sheet:", err));
     }
 
     function renderCategories() {
+      const itemsGrid = document.getElementById("itemsGrid");
       itemsGrid.innerHTML = '';
-      for (let cat in categories) {
-        const section = document.createElement('div');
-        section.className = 'bg-gray-800 rounded';
+      for (const cat in categories) {
+        const section = document.createElement("div");
+        section.className = "bg-gray-800 rounded";
 
-        const header = document.createElement('div');
-        header.className = 'font-bold text-lg cursor-pointer px-4 py-2 bg-gray-700 rounded-t';
-        header.innerHTML = `${cat}`;
+        const header = document.createElement("div");
+        header.className = "font-bold text-lg px-4 py-2 bg-gray-700 rounded-t";
+        header.textContent = cat;
 
-        const itemWrapper = document.createElement('div');
-        itemWrapper.className = 'p-4 space-y-2';
+        const itemWrapper = document.createElement("div");
+        itemWrapper.className = "p-4 space-y-2";
 
         categories[cat].forEach(({ item, price }) => {
-          const div = document.createElement('div');
-          div.className = 'bg-gray-700 p-3 rounded shadow cursor-pointer hover:bg-gray-600';
+          const div = document.createElement("div");
+          div.className = "bg-gray-700 p-3 rounded shadow cursor-pointer hover:bg-gray-600";
           div.innerHTML = `<div class='font-semibold mb-1'>${item}</div><p class='mb-1'>${formatPrice(price)}</p>`;
-          div.onclick = () => addToCart(item, price, 1);
+          div.onclick = () => addToCart(item, price);
           itemWrapper.appendChild(div);
         });
 
-        
         section.appendChild(header);
         section.appendChild(itemWrapper);
         itemsGrid.appendChild(section);
       }
     }
 
-    function addToCart(item, price, qty = 1) {
+    function addToCart(item, price) {
       const existing = cart.find(entry => entry.item === item);
       if (existing) {
-        existing.qty += qty;
+        existing.qty += 1;
       } else {
-        cart.push({ item, price, qty });
+        cart.push({ item, price, qty: 1 });
       }
-      saveCart();
       renderCart();
     }
 
     function renderCart() {
-      const discountPercent = parseFloat(document.getElementById('discount').value) || 0;
-      checkoutList.innerHTML = '';
+      const list = document.getElementById("checkoutList");
+      const totalPriceEl = document.getElementById("totalPrice");
+      const discount = parseFloat(document.getElementById("discount").value) || 0;
+      const alreadyPaid = parseFloat(document.getElementById("alreadyPaid").value) || 0;
+
+      list.innerHTML = '';
       let total = 0;
 
       cart.forEach(({ item, price, qty }, index) => {
-        const lineTotal = price * qty;
-        total += lineTotal;
-        const li = document.createElement('li');
-        li.className = 'flex justify-between items-center bg-gray-700 p-2 rounded';
+        const li = document.createElement("li");
+        li.className = "flex justify-between items-center bg-gray-700 p-2 rounded";
         li.innerHTML = `
           <div>
             ${item} - ${formatPrice(price)}<br>
@@ -189,11 +165,11 @@
           </div>
           <button onclick="removeItem(${index})" class="text-red-400">✕</button>
         `;
-        checkoutList.appendChild(li);
+        total += price * qty;
+        list.appendChild(li);
       });
 
-      const alreadyPaid = parseFloat(document.getElementById('alreadyPaid').value) || 0;
-      const discounted = total * (1 - discountPercent / 100);
+      const discounted = total * (1 - discount / 100);
       const finalTotal = Math.max(discounted - alreadyPaid, 0);
       totalPriceEl.textContent = formatPrice(finalTotal);
     }
@@ -202,65 +178,58 @@
       const qty = parseInt(newQty);
       if (!isNaN(qty) && qty > 0) {
         cart[index].qty = qty;
-        saveCart();
         renderCart();
       }
     }
 
     function removeItem(index) {
       cart.splice(index, 1);
-      saveCart();
       renderCart();
     }
 
     function resetCart() {
       cart = [];
-      saveCart();
       renderCart();
     }
 
-    function saveCart() {
-      localStorage.setItem("cart", JSON.stringify(cart));
-    }
-
     function exportReceipt() {
-      if (cart.length === 0) return alert("Cart is empty.");
-      const discountPercent = parseFloat(document.getElementById('discount').value) || 0;
+      const textArea = document.getElementById("receiptText");
+      let text = "🔧 Mechanic Shop Receipt\n\n";
       let total = 0;
-      let receipt = "🔧 Mechanic Shop Receipt\n\n";
+      const discount = parseFloat(document.getElementById("discount").value) || 0;
+      const alreadyPaid = parseFloat(document.getElementById("alreadyPaid").value) || 0;
+
       cart.forEach(({ item, price, qty }) => {
-        const line = price * qty;
-        total += line;
-        receipt += `${item} - ${formatPrice(price)} x ${qty} = ${formatPrice(line)}\n`;
+        const lineTotal = price * qty;
+        total += lineTotal;
+        text += `${item} - ${formatPrice(price)} x ${qty} = ${formatPrice(lineTotal)}\n`;
       });
-      const alreadyPaid = parseFloat(document.getElementById('alreadyPaid').value) || 0;
-      const discounted = total * (1 - discountPercent / 100);
+
+      const discounted = total * (1 - discount / 100);
       const finalTotal = Math.max(discounted - alreadyPaid, 0);
-      receipt += `
-Discount: ${discountPercent}%
-Already Paid: ${formatPrice(alreadyPaid)}
-Invoices: ${formatPrice(finalTotal)}`;
-      receiptText.textContent = receipt;
-      receiptModal.classList.remove("hidden");
+
+      text += `\nDiscount: ${discount}%\nAlready Paid: ${formatPrice(alreadyPaid)}\nInvoices: ${formatPrice(finalTotal)}`;
+      textArea.textContent = text;
+      document.getElementById("receiptModal").classList.remove("hidden");
     }
 
     function copyReceipt() {
-      navigator.clipboard.writeText(receiptText.textContent).then(() => {
-        alert("Receipt copied to clipboard.");
-      });
+      navigator.clipboard.writeText(document.getElementById("receiptText").textContent)
+        .then(() => alert("Receipt copied to clipboard."));
     }
 
     function closeReceipt() {
-      receiptModal.classList.add("hidden");
+      document.getElementById("receiptModal").classList.add("hidden");
     }
 
     function toggleSidebar(show) {
-  sidebarVisible = show;
-  sidebar.classList.toggle("hidden", !show);
-  sidebarToggleReopen.classList.toggle("hidden", show);
-  const mobileBtn = document.getElementById("sidebarToggleReopenMobile");
-  if (mobileBtn) mobileBtn.classList.toggle("hidden", show);
-}
+      const sidebar = document.getElementById("sidebar");
+      const sidebarToggleReopen = document.getElementById("sidebarToggleReopen");
+      const sidebarToggleReopenMobile = document.getElementById("sidebarToggleReopenMobile");
+      sidebar.classList.toggle("hidden", !show);
+      sidebarToggleReopen.classList.toggle("hidden", show);
+      sidebarToggleReopenMobile.classList.toggle("hidden", show);
+    }
 
     fetchSheetData();
   </script>
