@@ -27,6 +27,9 @@
         left: 50% !important;
         transform: translateX(-50%) !important;
       }
+      #sidebar {
+        max-height: 40vh !important;
+      }
     }
     #sidebarToggleReopen:hover {
       background-color: #334155;
@@ -61,7 +64,7 @@
     </aside>
 
     <main class="flex-1 p-6">
-      <div id="itemsGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+      <div id="itemsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
     </main>
   </div>
 
@@ -96,7 +99,7 @@
               currentCategory = item;
               if (!categories[currentCategory]) categories[currentCategory] = [];
             } else if (item && price && currentCategory) {
-              const numericPrice = parseInt(price.replace(/[^\d]/g, ''));
+              const numericPrice = parseInt(price.replace(/[\$,]/g, ''));
               if (!isNaN(numericPrice)) {
                 categories[currentCategory].push({ item, price: numericPrice });
               }
